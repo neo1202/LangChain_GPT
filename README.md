@@ -8,32 +8,59 @@ https://github.com/neo1202/LangChain_GPT.git
 
 ## Frontend --- _React, tailwind_
 
-#### `cd client`
-switch to the client folder
 
-#### `npm install`
-and run npm install to install the packages
+Go to the client folder
+```
+cd client
+```
+Install the packages using npm
+```
+npm install
+```
 
-#### `npm run dev`
-run this code, so you can
-open [http://localhost:8080](http://localhost:8080) view it in browser.
+run this code, so you can open website
+```
+npm run dev
+```
+[http://localhost:8080](http://localhost:8080) view it in browser.
 
 
 ## Backend --- _Flask_
-
+Go to the server folder
  ```
  cd flask-server
  ```
+ 
+####Create a config file and place your api keys in it
+Create a config file
+```
+touch config.py
+```
+Put your Api keys in it
+```python
+API_KEY = "your_api_key_here"
+SERP_API_KEY = "your_serpapi_key"
+PINECONE_KEY = "your_pinecone_key"
+```
+ 
 
+Create virtual environment for depencies
  ```
  python -m venv .venv
  ```
+Activate the virtual environment in your terminal
+```
+. .venv/bin/activate
+```
 
-#### `. .venv/bin/activate`
+Install the depencies for this .venv
+```
+pip install -r requirements.txt
+```
 
-#### `pip install -r requirements.txt`
+*run this code to active the backend server*
+```python -m flask run
+```
 
-#### `python -m flask run`
-run this code to active the backend server
 the server runs at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
 you can go to [http://127.0.0.1:5000/data](http://127.0.0.1:5000/data) to see some msg to ensure you successfully open the server.

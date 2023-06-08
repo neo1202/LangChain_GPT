@@ -29,7 +29,10 @@ def process_input():
     Ai_response =  '我操操操'+user_input
     
     return jsonify({'response': Ai_response})
+#python -m pip install flask 
 
-
-if __name__ == '__main__': #python -m flask run
+#python -m venv .venv 
+#. .venv/bin/activate  
+#python -m flask run
+if __name__ == '__main__': 
     app.run(debug=True, port=5000)
