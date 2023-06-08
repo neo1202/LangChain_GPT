@@ -21,9 +21,13 @@ open [http://localhost:8080](http://localhost:8080) view it in browser.
 
 ## Backend --- _Flask_
 
- ```cd flask-server````
+ ```
+ cd flask-server
+ ```
 
- `python -m venv .venv`
+ ```
+ python -m venv .venv
+ ```
 
 #### `. .venv/bin/activate`
 
