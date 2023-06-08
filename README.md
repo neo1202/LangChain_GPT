@@ -59,8 +59,9 @@ pip install -r requirements.txt
 ```
 
 *run this code to active the backend server*
-```python -m flask run
+```
+python -m flask run
 ```
 
-the server runs at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
+the server runs at [http://127.0.0.1:5000/](http://127.0.0.1:5000/) <br>
 you can go to [http://127.0.0.1:5000/data](http://127.0.0.1:5000/data) to see some msg to ensure you successfully open the server.
