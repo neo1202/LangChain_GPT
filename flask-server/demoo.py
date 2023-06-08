@@ -69,7 +69,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory 
-
+from config import OPEN_API_KEY, PINECONE_KEY, SERP_API_KEY
 from langchain.document_loaders import WebBaseLoader
 from serpapi import GoogleSearch
 
@@ -78,9 +78,9 @@ from text2vec import SentenceModel
 global_llm_chat, global_embeddings = None, None
 def initialize():
     global global_llm_chat, global_embeddings
-    os.environ["OPENAI_API_KEY"] = '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'
-    os.environ["SERPAPI_API_KEY"] = '06089eea6970e557b98953b8a61cbbb3747c0b8651a8c331faba9dbbc166c9a3'
-    os.environ['HUGGINGFACEHUB_API_TOKEN'] = ''
+    os.environ["OPENAI_API_KEY"] = OPEN_API_KEY
+    os.environ["SERPAPI_API_KEY"] = SERP_API_KEY
+    os.environ['HUGGINGFACEHUB_API_TOKEN'] = PINECONE_KEY
 
     #OpenAI類默認對應 「text-davinci-003」版本：
     #OpenAIChat類默認是 "gpt-3.5-turbo"版本
@@ -104,7 +104,7 @@ def process_and_store_documents(file_paths: List[str]) -> None:
         return split_docs
     
     pinecone.init(
-    api_key="28f629d1-8070-4c7a-b7c9-83b39acb10a0",
+    api_key=PINECONE_KEY,
     environment="us-west1-gcp-free"
     )
     index_name="demo-langchain" #768 #open ai embedding為1536向量
@@ -138,7 +138,7 @@ def process_and_store_documents(file_paths: List[str]) -> None:
 def get_my_agent():
     global global_embeddings
     pinecone.init(
-    api_key="28f629d1-8070-4c7a-b7c9-83b39acb10a0",
+    api_key="PINECONE_KEY",
     environment="us-west1-gcp-free"
     )
     index_name="demo-langchain" 
