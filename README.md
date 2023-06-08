@@ -1,6 +1,8 @@
 # LangChain with GPT demo website
 
 ## Start, init
+1. Fork the repo
+2. Go into the repo
 
 https://github.com/neo1202/LangChain_GPT.git
 
@@ -19,7 +21,7 @@ open [http://localhost:8080](http://localhost:8080) view it in browser.
 
 ## Backend --- _Flask_
 
- `cd flask-server`
+ ```cd flask-server````
 
  `python -m venv .venv`
 
