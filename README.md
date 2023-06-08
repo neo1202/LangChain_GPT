@@ -19,9 +19,9 @@ open [http://localhost:8080](http://localhost:8080) view it in browser.
 
 ## Backend --- _Flask_
 
-#### `cd flask-server`
+ `cd flask-server`
 
-#### `python -m venv .venv`
+ `python -m venv .venv`
 
 #### `. .venv/bin/activate`
 
@@ -29,3 +29,5 @@ open [http://localhost:8080](http://localhost:8080) view it in browser.
 
 #### `python -m flask run`
 run this code to active the backend server
+the server runs at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
+you can go to [http://127.0.0.1:5000/data](http://127.0.0.1:5000/data) to see some msg to ensure you successfully open the server.
