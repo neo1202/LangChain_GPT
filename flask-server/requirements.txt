@@ -118,3 +118,7 @@ xlrd==2.0.1
 XlsxWriter==3.1.2
 xxhash==3.2.0
 yarl==1.9.2
+pypdf
+docx2txt
+"unstructured[local-inference]"
+layoutparser[layoutmodels,tesseract]
