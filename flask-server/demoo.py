@@ -97,7 +97,6 @@ def initialize():
     EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     embeddings = HuggingFaceEmbeddings(model_name='shibing624/text2vec-base-chinese', model_kwargs={'device': EMBEDDING_DEVICE})  #768維度
     llm_chat = ChatOpenAI(temperature=0) #GPT-3.5-turbo
-    llm_chat
     global_llm_chat, global_embeddings = llm_chat, embeddings
     return llm_chat, embeddings
 
@@ -228,37 +227,27 @@ def get_my_agent():
     #### 分為兩段：
     # - 第一段：得到前k筆資料是有價值的(score大於某門檻)
     # - 第二段：讓retrievalQA去搜尋前k筆資料並依據其作出回答
-
-    prompt_template_fubon = """
-    你是個專業文檔師，你的任務是從給定的上下文回答問題
-        你的回答應該基於我提供的資訊回答我的問題，並以對話的方式呈現。
-        If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-        問題如下：
-        {question}
-        
-        給定的資訊：
-        {context}
-        
-        請綜合上述信息,你給出的回復需要包含以下3個字段:
-        1.text: 用於存放你總結性的文字回復,儘量完整
-        2.similiarAnswers: 基於我提的問題與上下文, 聯想2個我可能會想瞭解的不同維度的問題
-
-        請按照以下JSON格式來回答:
-
-        前括號
-        "text": "<這裡放你的回答>",
-        "similiarAnswers": [
-            "<聯想的問題1>",
-            "<聯想的問題2>"
-        ]
-        後括號
-
-    """
-    prompt_fubon = PromptTemplate(
-        template=prompt_template_fubon, input_variables=["context", "question"]
-        #context即是向量搜尋取回的文件們
+    fubon_question_prompt_template = """Use the following portion of a long document to see if any of the text is relevant to answer the question. 
+    Return any relevant text.
+    {context}
+    Question: {question}
+    Relevant text, if any:"""
+    FUBON_QUESTION_PROMPT = PromptTemplate(
+        template=fubon_question_prompt_template, input_variables=["context", "question"]
     )
+
+    fubon_combine_prompt_template = """你是個專業文檔師，你的任務是在你的回覆中，
+    ，保留大部分我給定的資訊，並把段落結合在一起. 
+
+    QUESTION: {question}
+    =========
+    {summaries}
+    =========
+    Answer in Chinese:"""
+    FUBON_COMBINE_PROMPT = PromptTemplate(
+        template=fubon_combine_prompt_template, input_variables=["summaries", "question"]
+    )
+
     class FubonDataSource:
         def __init__(self, llm:OpenAI(temperature=0)):
             self.llm = llm
@@ -285,7 +274,8 @@ def get_my_agent():
                                             chain_type="map_reduce", 
                                             retriever= docsearch.as_retriever(search_kwargs={"k": k}),
                                             chain_type_kwargs = {"verbose": False,
-                                                                "question_prompt": prompt_fubon, #注意是question_prompt
+                                                                "question_prompt": FUBON_QUESTION_PROMPT, #注意是question_prompt
+                                                                "combine_prompt": FUBON_COMBINE_PROMPT,
                                                                 },
                                             return_source_documents=False)
             return data_retriever.run(query)
@@ -499,7 +489,7 @@ def get_my_agent():
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
-    Assistant is a large language model in 富邦銀行. Always answer question with Chinese, Write in a Persuasive, Descriptive style.
+    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, Write in a Persuasive, Descriptive style.
 
     Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. 
 

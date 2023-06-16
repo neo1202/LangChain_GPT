@@ -10,6 +10,8 @@ import tempfile
 
 app = Flask(__name__)
 CORS(app)
+#CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
+
 # Access the config variables
 app.config['OPEN_API_KEY'] = OPEN_API_KEY
 app.config['SERP_API_KEY'] = SERP_API_KEY
