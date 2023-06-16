@@ -43,7 +43,6 @@ def process_input():
 #python -m venv .venv 
 #. .venv/bin/activate  
 #python -m flask run
-#python app.py
 if __name__ == '__main__': 
     app.run(debug=True, port=5000)
 

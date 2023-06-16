@@ -19,6 +19,7 @@ os.listdir() #確認目錄內容
 # Commented out IPython magic to ensure Python compatibility.
 # always needed
 import math, os, random, csv
+from config import OPEN_API_KEY, PINECONE_KEY, SERP_API_KEY
 #from torch.utils.tensorboard import SummaryWriter
 from math import gamma
 from tabnanny import verbose
@@ -55,6 +56,12 @@ from langchain.chains.summarize import load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.document_loaders.csv_loader import CSVLoader
+from langchain.document_loaders import UnstructuredExcelLoader
+from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import Docx2txtLoader
+import nltk
+nltk.download('punkt')
+from langchain.document_loaders import UnstructuredFileLoader
 from langchain.embeddings import HuggingFaceEmbeddings
 from typing import List, Union
 import zipfile
@@ -69,18 +76,19 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory 
-from config import OPEN_API_KEY, PINECONE_KEY, SERP_API_KEY
+
 from langchain.document_loaders import WebBaseLoader
 from serpapi import GoogleSearch
 
 from langchain.chat_models import ChatOpenAI
 from text2vec import SentenceModel
 global_llm_chat, global_embeddings = None, None
+
 def initialize():
     global global_llm_chat, global_embeddings
     os.environ["OPENAI_API_KEY"] = OPEN_API_KEY
     os.environ["SERPAPI_API_KEY"] = SERP_API_KEY
-    os.environ['HUGGINGFACEHUB_API_TOKEN'] = PINECONE_KEY
+    os.environ['HUGGINGFACEHUB_API_TOKEN'] = ''
 
     #OpenAI類默認對應 「text-davinci-003」版本：
     #OpenAIChat類默認是 "gpt-3.5-turbo"版本
@@ -92,6 +100,7 @@ def initialize():
     llm_chat
     global_llm_chat, global_embeddings = llm_chat, embeddings
     return llm_chat, embeddings
+
 def process_and_store_documents(file_paths: List[str]) -> None:
     global global_embeddings
     def init_txt(file_pth: str):
@@ -100,8 +109,37 @@ def process_and_store_documents(file_paths: List[str]) -> None:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, chunk_overlap=50, separators=[" ", ",", "\n", "\n\n", "\t", ""]
         )
-        split_docs = text_splitter.split_documents(documents)
-        return split_docs
+        split_docs_txt = text_splitter.split_documents(documents)
+        return split_docs_txt
+    
+    def init_csv(file_pth: str):
+        # my_csv_loader = CSVLoader(file_path=f'{file_pth}',encoding="utf-8", 
+        #                           csv_args={'delimiter': ','
+        # })
+        loader = DirectoryLoader(f'{file_pth}', glob='**/*.csv', loader_cls=CSVLoader, silent_errors=True)
+        documents = loader.load()
+        split_docs_csv = documents #這份csv資料已經人為切割
+        return split_docs_csv
+    
+    def init_xlsx(file_pth: str):
+        loader = UnstructuredExcelLoader(file_pth,mode="elements")
+        split_docs_xlsx = loader.load() 
+        return split_docs_xlsx
+    
+    def init_pdf(file_pth: str):
+        loader = PyPDFLoader(file_pth)
+        split_docs_pdf = loader.load_and_split()
+        return split_docs_pdf
+
+    def init_word(file_pth: str):
+        loader = Docx2txtLoader(file_pth)
+        split_docs_word = loader.load()
+        return split_docs_word
+    
+    def init_ustruc(file_pth: str):
+        loader = UnstructuredFileLoader(file_pth)
+        split_docs_ustruc = loader.load()
+        return split_docs_ustruc
     
     pinecone.init(
     api_key=PINECONE_KEY,
@@ -128,17 +166,15 @@ def process_and_store_documents(file_paths: List[str]) -> None:
     docsearch=Pinecone.from_existing_index(index_name,global_embeddings) #傳入當初embedding的方法
     index_stats = index.describe_index_stats()
     #print(index_stats)
-
+    
 """## 模板 （Agent, tool, chain)
 
 ## 定義Tools的集合
-
-#### 假資料
 """
 def get_my_agent():
     global global_embeddings
     pinecone.init(
-    api_key="PINECONE_KEY",
+    api_key= PINECONE_KEY,
     environment="us-west1-gcp-free"
     )
     index_name="demo-langchain" 
