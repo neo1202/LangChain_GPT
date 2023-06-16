@@ -16,7 +16,7 @@ const DocUploader = () => {
   };
 
   return (
-    <section>
+    <section className="absolute">
         <form id="upload-form" encType="multipart/form-data" onSubmit={handleSubmit}>
             <input type="file" webkitdirectory="true" id="file-input" name="file" directory="" multiple/>
             <button type="submit">Upload</button>
