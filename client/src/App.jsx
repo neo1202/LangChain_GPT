@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import axios from 'axios';
+import DocUploader from './DocUploader';
 
 
 function App() {
@@ -16,7 +17,7 @@ function App() {
 		e.preventDefault();
 		const text = userInput
 		setUserInput('')
-		axios.post('http://127.0.0.1:5000/api/endpoint', {
+		axios.post('http://127.0.0.1:5000/get_answer', {
 			inputText : text
 		})
 		.then(function (response){
@@ -41,6 +42,7 @@ function App() {
 	<>
 		<div className="absolute right-0 top-0 -z-50 h-screen w-screen bg-[url('https://source.unsplash.com/OTy0mkqc2Yk')] bg-cover bg-fixed bg-center  bg-no-repeat">
 		</div>
+		<DocUploader/>
 		<section className="flex flex-col items-center justify-center h-screen">
 			<div className="w-4/5 h-3/4 bg-gray-200 rounded-lg container relative min-w-[450px] overflow-y-auto border-2 pb-4">
 				<div className="h-[60px] bg-gray-400 mx-auto flex sticky top-0 w-full mb-8">
@@ -53,7 +55,7 @@ function App() {
 							{message.HumanInput && 
 								<div className="mr-2 mb-2 item-center flex flex-row justify-end font-bold">
 									<div className="flex item-center mb-2 mr-2 max-w-[65%] rounded-l-3xl rounded-tr-xl bg-gradient-to-r from-sky-500/80 to-blue-500/70 px-3 py-2 text-white">
-                                    	Input:{message.HumanInput}
+                                    	{message.HumanInput}
                                     </div>
 									<img alt="" className="h-10 w-10 rounded-full object-cover" 
 										 src={"https://source.unsplash.com/pUhxoSapPFA"} 
@@ -65,7 +67,7 @@ function App() {
 									 src={"https://source.unsplash.com/pUhxoSapPFA}"} 
 								/>
 								<div className="ml-2 rounded-r-3xl rounded-tl-xl bg-gray-400 px-3 py-2 text-white">
-									Response: {message.AiResponse}
+									{message.AiResponse}
 								</div>
 							</div>
 						</div>
