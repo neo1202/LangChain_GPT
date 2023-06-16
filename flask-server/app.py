@@ -29,7 +29,44 @@ def get_time():
         "programming":"python"
     }
 
-@app.route('/api/endpoint', methods=['POST'])
+@app.route('/upload_folder', methods=['POST'])
+@app.route('/upload_file', methods=['POST'])
+#Two possibilities -> a single folder or 1~multiple files
+def upload_documents():
+    responses = []
+    print(f'\nfile objects that I receive in this upload:{request.files}')
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file part in the request.'}), 400
+
+    files = request.files.getlist('file')  # Get the list of files
+    if files[0].filename.endswith('/'):  # 處理folder成一個list of files 好像用不到
+        print('haha')
+        folder_path = files[0].filename
+        file_names = os.listdir(folder_path)
+        files = [open(os.path.join(folder_path, file_name), 'rb') for file_name in file_names]
+
+    for file in files:
+        print('\nthis file:', file)
+        if file.filename == '':
+            responses.append({'message': '''There's a bad file.''', 'code':400})
+        # 保存文件到臨時位置
+        temp_file = tempfile.NamedTemporaryFile(delete=False) #創建一個位置以及位置路徑
+        file.save(temp_file.name)
+        print("Temporary file path:", temp_file.name)
+        try:
+            process_and_store_documents([temp_file.name])  
+            responses.append({
+                'message': f'File uploaded and processed successfully to Temporary space {temp_file.name}','code':200})
+        except Exception as e:
+            app.logger.debug('Debug message')
+            responses.append({'message': f'Error processing file: {str(e)}', 'code':500})
+        finally:
+            # 刪除臨時文件
+            os.remove(temp_file.name)
+    responses.append('end message:file upload successfully finished')
+    return jsonify({'responses': responses}), 200
+
+@app.route('/get_answer', methods=['POST'])
 def process_input():
     data = request.get_json()
     print(f'receive data from User input: {data}')
@@ -45,5 +82,3 @@ def process_input():
 #python -m flask run
 if __name__ == '__main__': 
     app.run(debug=True, port=5000)
-
-#fgggggggggg
