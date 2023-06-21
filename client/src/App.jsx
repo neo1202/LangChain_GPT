@@ -59,7 +59,7 @@ function App() {
 						<div key={index}>
 							{message.HumanInput && 
 								<div className="mr-2 mb-2 item-center flex flex-row justify-end font-bold">
-									<div className="flex item-center mb-2 mr-2 max-w-[65%] rounded-l-3xl rounded-tr-xl bg-gradient-to-r from-sky-500/80 to-blue-500/70 px-3 py-2 text-white">
+									<div style={{ whiteSpace: 'pre-wrap' }} className="flex item-center mb-2 mr-2 max-w-[65%] rounded-l-3xl rounded-tr-xl bg-gradient-to-r from-sky-500/80 to-blue-500/70 px-3 py-2 text-white">
                                     	{message.HumanInput}
                                     </div>
 									<img alt="" className="h-10 w-10 rounded-full object-cover" 
@@ -71,7 +71,7 @@ function App() {
 								<img alt="" className="h-10 w-10 rounded-full object-cover" 
 									 src={"https://source.unsplash.com/pUhxoSapPFA}"} 
 								/>
-								<div className="ml-2 rounded-r-3xl rounded-tl-xl bg-gray-400 px-3 py-2 text-white">
+								<div style={{ whiteSpace: 'pre-wrap' }} className="ml-2 rounded-r-3xl rounded-tl-xl bg-gray-400 px-3 py-2 text-white">
 									{message.AiResponse}
 								</div>
 							</div>
