@@ -16,12 +16,8 @@ drive.mount('/content/drive')
 os.chdir('/content/drive/MyDrive/Colab/富邦') #切換該目錄
 os.listdir() #確認目錄內容
 """
-# Commented out IPython magic to ensure Python compatibility.
-# always needed
 import math, os, random, csv
 from config import OPEN_API_KEY, PINECONE_KEY, SERP_API_KEY
-#from torch.utils.tensorboard import SummaryWriter
-from math import gamma
 from tabnanny import verbose
 import pandas as pd
 import numpy as np
@@ -30,8 +26,6 @@ import json, logging, pickle, sys, shutil, copy
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from copy import copy
-import joblib
-
 # %matplotlib inline
 import seaborn as sns
 # others
@@ -41,8 +35,6 @@ from PIL import Image
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.document_loaders import DirectoryLoader, TextLoader
-
-import jieba as jb
 
 import torch
 from langchain.vectorstores import Pinecone
@@ -298,18 +290,21 @@ def get_my_agent():
 
         {text}
 
-        CONCISE SUMMARY IN Chinese:"""
-        PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
+        CONCISE SUMMARY IN Chinese:
+        """
+        web_PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
         refine_template = (
-            "Your job is to produce a final summary so that a reader will have a full understanding of what happened\n"
-            "We have provided an existing summary up to a certain point: {existing_answer}\n"
-            "We have the opportunity to refine the existing summary"
-            "(only if needed) with some more context below.\n"
-            "------------\n"
-            "{text}\n"
-            "------------\n"
-            "Given the new context, refine the original summary in Chinese around 300 words"
-            "If the context isn't useful, return the original summary."
+            """Your job is to produce a final summary so that a reader will have a full understanding of what happened
+            We have provided an existing summary up to a certain point: {existing_answer}
+            We have the opportunity to refine the existing summary
+            (only if needed) with some more context below.
+            Context:
+            ------------
+            {text}
+            ------------
+            Given the new context, refine the original summary
+            If the context isn't useful, return the original summary.
+            The response should be in bullet points, traditional Chinese"""
         )
         refine_prompt = PromptTemplate(
             input_variables=["existing_answer", "text"],
@@ -317,14 +312,14 @@ def get_my_agent():
         )
         # Google search Api params
         params = {
-        "q": f"{input_query}",
-        "location": "Taiwan",
-        "hl": "tw", #國家
-        "gl": "us",
-        "google_domain": "google.com",
-        # your api key
-        "api_key": "06089eea6970e557b98953b8a61cbbb3747c0b8651a8c331faba9dbbc166c9a3",
-        "num": f"{num_news}"
+            "q": f"{input_query}",
+            "location": "Taiwan",
+            "hl": "tw", #國家
+            "gl": "us",
+            "google_domain": "google.com",
+            # your api key
+            "api_key": "06089eea6970e557b98953b8a61cbbb3747c0b8651a8c331faba9dbbc166c9a3",
+            "num": f"{num_news}"
         }
 
         search = GoogleSearch(params)
@@ -356,80 +351,36 @@ def get_my_agent():
         for doc in split_docs:
             doc = extract_text(doc)
             print('here is a doc:', doc)
-        chain = load_summarize_chain(global_llm_chat, chain_type="refine", question_prompt=PROMPT, refine_prompt=refine_prompt
+        web_sum_chain = load_summarize_chain(global_llm_chat, chain_type="refine", question_prompt=web_PROMPT, refine_prompt=refine_prompt
                                     ,verbose=False) #verbose可以看過程
-        result = chain.run(split_docs)
+        result = web_sum_chain.run(split_docs)
         return result
 
     """#### 其餘小工具"""
 
     search = SerpAPIWrapper(params = {'engine': 'google', 'gl': 'us', 'google_domain': 'google.com', 'hl': 'tw'})
-    llm_math_chain = LLMMathChain(llm=global_llm_chat, verbose=False)
-
-    # from langchain.docstore.document import Document
-    # def summarizeText(input_text: str) : 
-    #     '''單純的總結一段文字'''
-    #     #每一段原始text
-    #     map_prompt_template = """Write a concise summary of the following to 30 to 50 words:
-
-
-    #     {text}
-
-
-    #     CONCISE SUMMARY IN Chinese:"""
-    #     map_prompt = PromptTemplate(template=map_prompt_template, input_variables=["text"])
-
-    #     #最後總結那些精簡後的text
-    #     combine_prompt_template = """Write a concise summary of the following to 80 to 160 words:
-
-
-    #     {text}
-
-
-    #     CONCISE SUMMARY IN Chinese:"""
-    #     combine_prompt = PromptTemplate(template=combine_prompt_template, input_variables=["text"])
-
-    #     text_splitter = RecursiveCharacterTextSplitter(
-    #       chunk_size=1000, chunk_overlap=20, separators=[" ", ",", "\n", "\n\n", "\t", ""]
-    #     )
-    #     texts = text_splitter.split_text(input_text)
-    #     # Create Document objects for the texts
-    #     docs = [Document(page_content=t) for t in texts]
-
-    #     chain = load_summarize_chain(OpenAI(temperature=0), chain_type="map_reduce",
-    #                                  return_intermediate_steps=False, map_prompt=map_prompt, combine_prompt=combine_prompt)
-    #     summary = chain.run(docs)
-    #     return summary
+    #llm_math_chain = LLMMathChain(llm=global_llm_chat, verbose=False)
 
     """### 將Tools 集合丟給Agent調用"""
 
     customize_tools = [
-        #Tool(
-         #   name = "SimpleSearchWeb",
-          #  func=search.run,
-           # description="Only use when you need to answer simple questions about current events after 2022"
-        #),
         Tool(
-            name = '查詢相關資訊',
+            name = '查詢富邦相關資訊',
             func=fubon_data_source.return_doc_summary,
-            description="Useful for questions related to topics that they upload to get more information,\
+            description="Useful for questions related to Fubon Bank topics to get more precise information,\
+            if the user tell you to answer by Knowledge base, you MUST use this tool\
             your action input here must be a single sentence query that correspond to the question"
         ),
         Tool(
             name = "SummarizeWebInformation",
             func=sumWebAPI,
-            description="Only use when you need to conclude web information after 2022, input should be key word"
+            description="Only use when user ask to search for web information after 2022, input should be key word"
         ),
         # Tool(
-        #     name = "SummarizeTextInput",
-        #     func=summarizeText,
-        #     description="Useful when you want to summarize a piece of text, regardless of its length, input should be a string of text"
+        #     name="Calculator",
+        #     func=llm_math_chain.run,
+        #     description="useful for when you need to answer questions about math"
         # ),
-        Tool(
-            name="Calculator",
-            func=llm_math_chain.run,
-            description="useful for when you need to answer questions about math"
-        ),
         Tool(
             name="查詢復歌科技公司產品名稱",
             func=fuge_data_source.find_product_description,
@@ -450,7 +401,6 @@ def get_my_agent():
                 #print(f'找到最後答案了，此次的llm_output為: \n{llm_output}')
                 return AgentFinish(
                     # Return values is generally always a dictionary with a single `output` key
-                    # It is not recommended to try anything else at the moment :)
                     return_values={"output": llm_output.split("Final Answer:")[-1].strip()},
                     log=llm_output,
                 )
@@ -470,7 +420,7 @@ def get_my_agent():
 
     #memory input_key='input'可以避免讀到其他輸入
     #https://github.com/hwchase17/langchain/issues/1774
-    memory = ConversationBufferWindowMemory(k=3, memory_key="chat_history", 
+    memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", 
                                             input_key="input", 
                                             output_key='output', return_messages=True)
 
@@ -489,7 +439,7 @@ def get_my_agent():
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
-    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, Write in a Persuasive, Descriptive style.
+    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style , but if the user has a preferred tone or role, assistant always adjust accordingly to their preference.
 
     Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. 
 
@@ -514,14 +464,16 @@ def get_my_agent():
     Observation: the result of the action
     ```
 
-    When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
+    When you have a response to say to the Human, or if you do not need to use a tool,
+    remember to make the most use of previous observation.
+    you MUST use the format:
 
     ```
     Thought: Do I need to use a tool? No
     {ai_prefix}: [your response here]
     ```"""
 
-    agent_prompt_suffix = """Begin!
+    agent_prompt_suffix = """Begin, answer in traditional Chinese!
 
     Previous conversation history:
     {chat_history}
@@ -540,7 +492,6 @@ def get_my_agent():
     ) #input_variables: Optional[List[str]] = None
     my_agent.agent.llm_chain.prompt = new_sys_msg
     my_agent.agent.llm_chain.prompt.output_parser = CustomOutputParser()
-    my_agent.agent.llm_chain.prompt
     
     return my_agent
 

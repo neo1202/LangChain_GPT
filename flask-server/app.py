@@ -73,7 +73,12 @@ def process_input():
     data = request.get_json()
     print(f'receive data from User input: {data}')
     user_input = data.get('inputText') #等同於 data['inputText']
-    Ai_response =  my_agent.run(user_input)
+    try:
+        Ai_response = my_agent.run(user_input)
+    except Exception as e:
+        Ai_response = str(e)
+        if Ai_response.startswith("Could not parse LLM output: `"):
+            Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
     
     return jsonify({'response': Ai_response})
 
