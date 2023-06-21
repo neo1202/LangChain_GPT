@@ -123,3 +123,5 @@ unstructured[local-inference]
 layoutparser[layoutmodels,tesseract]
 google-serp-api
 text2vec
+faiss-cpu
+

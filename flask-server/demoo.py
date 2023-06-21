@@ -16,8 +16,12 @@ drive.mount('/content/drive')
 os.chdir('/content/drive/MyDrive/Colab/富邦') #切換該目錄
 os.listdir() #確認目錄內容
 """
-import math, os, random, csv
+# Commented out IPython magic to ensure Python compatibility.
+# always needed
+import math, os, random, csv, getpass
 from config import OPEN_API_KEY, PINECONE_KEY, SERP_API_KEY
+#from torch.utils.tensorboard import SummaryWriter
+from math import gamma
 from tabnanny import verbose
 import pandas as pd
 import numpy as np
@@ -54,6 +58,11 @@ from langchain.document_loaders import Docx2txtLoader
 import nltk
 nltk.download('punkt')
 from langchain.document_loaders import UnstructuredFileLoader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import FAISS
+import faiss
+from sentence_transformers import SentenceTransformer
+from langchain.chains import RetrievalQAWithSourcesChain
 from langchain.embeddings import HuggingFaceEmbeddings
 from typing import List, Union
 import zipfile
@@ -74,10 +83,8 @@ from serpapi import GoogleSearch
 
 from langchain.chat_models import ChatOpenAI
 from text2vec import SentenceModel
-global_llm_chat, global_embeddings = None, None
 
 def initialize():
-    global global_llm_chat, global_embeddings
     os.environ["OPENAI_API_KEY"] = OPEN_API_KEY
     os.environ["SERPAPI_API_KEY"] = SERP_API_KEY
     os.environ['HUGGINGFACEHUB_API_TOKEN'] = ''
@@ -85,16 +92,13 @@ def initialize():
     #OpenAI類默認對應 「text-davinci-003」版本：
     #OpenAIChat類默認是 "gpt-3.5-turbo"版本
     #OpenAI是即將被棄用的方法，最好是用ChatOpenAI
-    model = SentenceModel('shibing624/text2vec-base-chinese')
+    # 檢查是否有可用的GPU
     EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    embeddings = HuggingFaceEmbeddings(model_name='shibing624/text2vec-base-chinese', model_kwargs={'device': EMBEDDING_DEVICE})  #768維度
-    llm_chat = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo") #GPT-3.5-turbo
-    #llm_chat = ChatOpenAI(temperature=0, model_name="gpt-4")
-    global_llm_chat, global_embeddings = llm_chat, embeddings
+    embeddings = OpenAIEmbeddings()
+    llm_chat = ChatOpenAI(temperature=0) #GPT-3.5-turbo
     return llm_chat, embeddings
-
 def process_and_store_documents(file_paths: List[str]) -> None:
-    global global_embeddings
+    llm_chat, embeddings = initialize()
     def init_txt(file_pth: str):
         loader = TextLoader(file_pth)
         documents = loader.load()
@@ -133,46 +137,27 @@ def process_and_store_documents(file_paths: List[str]) -> None:
         split_docs_ustruc = loader.load()
         return split_docs_ustruc
     
-    pinecone.init(
-    api_key=PINECONE_KEY,
-    environment="us-west1-gcp-free"
-    )
-    index_name="demo-langchain" #768 #open ai embedding為1536向量
-
-    if index_name not in pinecone.list_indexes():
-        pinecone.create_index(
-            name=index_name,
-            metric='cosine', #or dotproduct
-            dimensions=768
-        )
-    index = pinecone.Index(index_name)
-    index.describe_index_stats()
-    #print(f"Processing file paths: {file_paths}")
-    #if not index.describe_index_stats()['total_vector_count']:
     doc_chunks = []
     for file_path in file_paths:
         txt_docs = init_txt(file_path)
         #print(f"Document chunks from {file_path}: {txt_docs}")
         doc_chunks.extend(txt_docs)
-    Pinecone.from_texts([t.page_content for t in doc_chunks], global_embeddings, index_name=index_name)
-    docsearch=Pinecone.from_existing_index(index_name,global_embeddings) #傳入當初embedding的方法
-    index_stats = index.describe_index_stats()
-    #print(index_stats)
-    
+    folder_path = "/Users/kevin/Desktop/LangChain_GPT/flask-server/faiss_index"
+    embeddings = OpenAIEmbeddings()
+    docsearch = FAISS.load_local(folder_path, embeddings)
+    new_metadatas = [doc.metadata for doc in doc_chunks]
+    # 提取每個文檔的實際來源
+    docsearch.add_texts([t.page_content for t in doc_chunks], metadatas=new_metadatas)
 """## 模板 （Agent, tool, chain)
 
 ## 定義Tools的集合
 """
 def get_my_agent():
-    global global_embeddings
-    pinecone.init(
-    api_key= PINECONE_KEY,
-    environment="us-west1-gcp-free"
-    )
-    index_name="demo-langchain" 
-    index = pinecone.Index(index_name)
-    index.describe_index_stats() 
-    docsearch = Pinecone.from_existing_index(index_name,global_embeddings)
+    llm_chat, embeddings = initialize()   
+    # Embedding running device
+    EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    embeddings = OpenAIEmbeddings()
+
     CONTEXT_QA_Template = """
     根據以下提供的信息，回答用戶的問題
     信息：{context}
@@ -211,7 +196,7 @@ def get_my_agent():
             """
             prompt = CONTEXT_QA_PROMPT.format( context=context, query=query )
             return self.llm(prompt = prompt)
-    fuge_data_source = FugeDataSource(global_llm_chat) #初始化
+    fuge_data_source = FugeDataSource(llm_chat) #初始化
 
     """#### 公司內部文檔搜尋QA
     包含score
@@ -230,7 +215,7 @@ def get_my_agent():
     )
 
     fubon_combine_prompt_template = """你是個專業文檔師，你的任務是在你的回覆中，
-    ，保留大部分我給定的資訊，並把段落結合在一起. 
+   ，保留大部分我給定的資訊，並把段落結合在一起。source請一起附上給我，如果有重複的source請給我不重複的source各一個就好。
 
     QUESTION: {question}
     =========
@@ -240,38 +225,21 @@ def get_my_agent():
     FUBON_COMBINE_PROMPT = PromptTemplate(
         template=fubon_combine_prompt_template, input_variables=["summaries", "question"]
     )
-
+    embeddings = OpenAIEmbeddings()
+    folder_path = "/Users/kevin/Desktop/LangChain_GPT/flask-server/faiss_index"
+    docsearch = FAISS.load_local(folder_path, embeddings)
     class FubonDataSource:
         def __init__(self, llm:OpenAI(temperature=0)):
             self.llm = llm
-        def find_doc_above_score(self, query: str) -> str:
-            """讓chain知道前幾筆資料是有用的, pass到search.kwarg 因pinecone+langchain不支援同時取score"""
-            model = SentenceModel('shibing624/text2vec-base-chinese')
-            query_embedd = model.encode(query, convert_to_numpy=True).tolist()
-            response = index.query(query_embedd, top_k=2, include_metadata=True)
-            #print(response) 
-            threshold = 0.60
-            above_criterion_cnt = 0
-            for data in response['matches']:
-                if data['score'] < threshold:
-                    break;
-                print(data)
-                above_criterion_cnt += 1
-            print(f"\nHow many docs match the criterion? {above_criterion_cnt} docs\n")
-            return above_criterion_cnt
         def return_doc_summary(self, query: str) -> str:
-            k = self.find_doc_above_score(query)
-
-            if k == 0: return '沒有內部相符的文檔'
-            data_retriever = RetrievalQA.from_chain_type(llm=retrieval_llm, 
-                                            chain_type="map_reduce", 
-                                            retriever= docsearch.as_retriever(search_kwargs={"k": k}),
-                                            chain_type_kwargs = {"verbose": False,
+            k = 3
+            data_retriever = RetrievalQAWithSourcesChain.from_chain_type(ChatOpenAI(temperature=0), chain_type="map_reduce",
+                                                            retriever=docsearch.as_retriever(search_kwargs={"k": k}),
+                            chain_type_kwargs = {"verbose": True,
                                                                 "question_prompt": FUBON_QUESTION_PROMPT, #注意是question_prompt
                                                                 "combine_prompt": FUBON_COMBINE_PROMPT,
-                                                                },
-                                            return_source_documents=False)
-            return data_retriever.run(query)
+                                                })
+            return data_retriever({"question": query}, return_only_outputs=True)
 
     retrieval_llm = ChatOpenAI(temperature=0)
     fubon_data_source = FubonDataSource(retrieval_llm) #初始化
@@ -352,7 +320,10 @@ def get_my_agent():
         for doc in split_docs:
             doc = extract_text(doc)
             print('here is a doc:', doc)
-        web_sum_chain = load_summarize_chain(global_llm_chat, chain_type="refine", question_prompt=web_PROMPT, refine_prompt=refine_prompt
+
+
+        web_sum_chain = load_summarize_chain(llm_chat, chain_type="refine", question_prompt=web_PROMPT, refine_prompt=refine_prompt
+
                                     ,verbose=False) #verbose可以看過程
         result = web_sum_chain.run(split_docs)
         return result
@@ -360,11 +331,54 @@ def get_my_agent():
     """#### 其餘小工具"""
 
     search = SerpAPIWrapper(params = {'engine': 'google', 'gl': 'us', 'google_domain': 'google.com', 'hl': 'tw'})
+
     #llm_math_chain = LLMMathChain(llm=global_llm_chat, verbose=False)
+
+    llm_math_chain = LLMMathChain(llm=llm_chat, verbose=False)
+
+    # from langchain.docstore.document import Document
+    # def summarizeText(input_text: str) : 
+    #     '''單純的總結一段文字'''
+    #     #每一段原始text
+    #     map_prompt_template = """Write a concise summary of the following to 30 to 50 words:
+
+
+    #     {text}
+
+
+    #     CONCISE SUMMARY IN Chinese:"""
+    #     map_prompt = PromptTemplate(template=map_prompt_template, input_variables=["text"])
+
+    #     #最後總結那些精簡後的text
+    #     combine_prompt_template = """Write a concise summary of the following to 80 to 160 words:
+
+
+    #     {text}
+
+
+    #     CONCISE SUMMARY IN Chinese:"""
+    #     combine_prompt = PromptTemplate(template=combine_prompt_template, input_variables=["text"])
+
+    #     text_splitter = RecursiveCharacterTextSplitter(
+    #       chunk_size=1000, chunk_overlap=20, separators=[" ", ",", "\n", "\n\n", "\t", ""]
+    #     )
+    #     texts = text_splitter.split_text(input_text)
+    #     # Create Document objects for the texts
+    #     docs = [Document(page_content=t) for t in texts]
+
+    #     chain = load_summarize_chain(OpenAI(temperature=0), chain_type="map_reduce",
+    #                                  return_intermediate_steps=False, map_prompt=map_prompt, combine_prompt=combine_prompt)
+    #     summary = chain.run(docs)
+    #     return summary
 
     """### 將Tools 集合丟給Agent調用"""
 
     customize_tools = [
+        #Tool(
+         #   name = "SimpleSearchWeb",
+          #  func=search.run,
+           # description="Only use when you need to answer simple questions about current events after 2022"
+        #),
         Tool(
             name = '查詢富邦相關資訊',
             func=fubon_data_source.return_doc_summary,
@@ -427,7 +441,7 @@ def get_my_agent():
 
     my_agent = initialize_agent(
         tools=customize_tools,
-        llm=global_llm_chat,
+        llm = llm_chat,
         agent='conversational-react-description',
         verbose=True,
         memory=memory,
