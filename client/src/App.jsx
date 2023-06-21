@@ -87,16 +87,15 @@ function App() {
 						</div>
 					</div> )}
 
-
 				</div>
 			</div>
 			<div className="mt-6 mx-auto z-0 flex h-[4rem] w-[70%] flex-row items-center rounded-xl bg-zinc-200 px-4">
 				<form
-					className="mx-auto flex w-full"
+					className="px-6 mx-auto flex w-full"
 					onSubmit={handleSendMessage}
 				>
 					<input
-						className="ml-4 mr-2 w-3/4 shrink rounded border border-gray-300 p-2 focus:border-blue-500 focus:outline-none"
+						className="ml-4 lg:ml-8 mr-2 w-3/4 shrink rounded border border-gray-300 p-2 focus:border-blue-500 focus:outline-none"
 						id="content"
 						placeholder="Message"
 						type="text"

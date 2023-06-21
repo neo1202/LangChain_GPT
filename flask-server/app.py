@@ -77,14 +77,12 @@ def process_input():
         Ai_response = my_agent.run(user_input)
     except Exception as e:
         Ai_response = str(e)
+        print(f'The error is here{e}')
         if Ai_response.startswith("Could not parse LLM output: `"):
             Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
     
     return jsonify({'response': Ai_response})
 
-#python -m pip install flask 
-
-#python -m venv .venv 
 #. .venv/bin/activate  
 #python -m flask run
 if __name__ == '__main__': 

@@ -88,7 +88,8 @@ def initialize():
     model = SentenceModel('shibing624/text2vec-base-chinese')
     EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     embeddings = HuggingFaceEmbeddings(model_name='shibing624/text2vec-base-chinese', model_kwargs={'device': EMBEDDING_DEVICE})  #768維度
-    llm_chat = ChatOpenAI(temperature=0) #GPT-3.5-turbo
+    llm_chat = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo") #GPT-3.5-turbo
+    #llm_chat = ChatOpenAI(temperature=0, model_name="gpt-4")
     global_llm_chat, global_embeddings = llm_chat, embeddings
     return llm_chat, embeddings
 
@@ -235,7 +236,7 @@ def get_my_agent():
     =========
     {summaries}
     =========
-    Answer in Chinese:"""
+    Answer in traditional Chinese:"""
     FUBON_COMBINE_PROMPT = PromptTemplate(
         template=fubon_combine_prompt_template, input_variables=["summaries", "question"]
     )
@@ -439,7 +440,7 @@ def get_my_agent():
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
-    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style , but if the user has a preferred tone or role, assistant always adjust accordingly to their preference.
+    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style , but if the user has a preferred tone or role, assistant always adjust accordingly to their preference. If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements
 
     Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. 
 
@@ -479,6 +480,7 @@ def get_my_agent():
     {chat_history}
 
     New user input: {input}
+    If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements
     {agent_scratchpad}"""
 
     #自己填充的prompt
