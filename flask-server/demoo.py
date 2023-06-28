@@ -388,31 +388,60 @@ def get_my_agent():
             description="幫用戶詢問復歌科技公司相关的问题, 可以通过这个工具了解相关信息",
         )
     ]
-    """## 初始化Agent with Tools"""
-    class CustomOutputParser(AgentOutputParser):
-        def parse(self, llm_output: str) -> Union[AgentAction, AgentFinish]:
-            # 解析 llm 的輸出，根據輸出文本找到需要執行的決策。
-            # Check if agent should finish
-            if "Final Answer:" in llm_output:
-                #print(f'找到最後答案了，此次的llm_output為: \n{llm_output}')
-                return AgentFinish(
-                    # Return values is generally always a dictionary with a single `output` key
-                    return_values={"output": llm_output.split("Final Answer:")[-1].strip()},
-                    log=llm_output,
+    # """## 初始化Agent with Tools"""
+    # class CustomOutputParser(AgentOutputParser):
+    #     def parse(self, llm_output: str) -> Union[AgentAction, AgentFinish]:
+    #         print("-" * 20)
+    #         # Check if agent should finish
+    #         print("llm_output:", llm_output)
+    #         if "Final Answer:" in llm_output:
+    #             return AgentFinish(
+    #                 # Return values is generally always a dictionary with a single `output` key
+    #                 return_values={"output": llm_output.split("Final Answer:")[-1].strip()},
+    #                 log=llm_output,
+    #             )
+            
+    #         # Parse out the action and action input
+    #         regex = r"Action: (.*?)[\n]*Action Input:[\s]*(.*)"
+    #         match = re.search(regex, llm_output, re.DOTALL) #DOTALL代表可以是任何字元
+            
+    #         # If it can't parse the output it raises an error
+    #         if not match:
+    #             print("Can't parse llm_output:(")
+    #             raise ValueError(f"暫時無法解析您的問題。Could not parse LLM output: `{llm_output}`")
+    #         action = match.group(1).strip()
+    #         action_input = match.group(2)       
+    #         # Return the action and action input
+    #         return AgentAction(tool=action, tool_input=action_input.strip(" ").strip('"'), log=llm_output)
+        
+
+    from langchain.schema import AgentAction, AgentFinish, OutputParserException
+    class ChatOutputParser(AgentOutputParser):
+        def parse(self, text: str) -> Union[AgentAction, AgentFinish]:
+            includes_answer = "Final Answer:" in text
+            try:
+                action = text.split("```")[1]
+                response = json.loads(action.strip())
+                includes_action = "action" in response
+                if includes_answer and includes_action:
+                    raise OutputParserException(
+                        "Parsing LLM output produced a final answer "
+                        f"and a parse-able action: {text}"
+                    )
+                return AgentAction(
+                    response["action"], response.get("action_input", {}), text
                 )
-            
-            # Parse out the action and action input
-            regex = r"Action: (.*?)[\n]*Action Input:[\s]*(.*)"
-            match = re.search(regex, llm_output, re.DOTALL) #DOTALL代表可以是任何字元
-            
-            # If it can't parse the output it raises an error
-            if not match:
-                raise ValueError(f"暫時無法解析您的問題。Could not parse LLM output: `{llm_output}`")
-            action = match.group(1).strip()
-            action_input = match.group(2)
-            
-            # Return the action and action input
-            return AgentAction(tool=action, tool_input=action_input.strip(" ").strip('"'), log=llm_output)
+
+            except Exception:
+                if not includes_answer:
+                    raise OutputParserException(f"Could not parse LLM output: {text}")
+                return AgentFinish(
+                    {"output": text.split("Final Answer:")[-1].strip()}, text
+                )
+
+        @property
+        def _type(self) -> str:
+            return "chat"
 
     #memory input_key='input'可以避免讀到其他輸入
     #https://github.com/hwchase17/langchain/issues/1774
@@ -422,16 +451,13 @@ def get_my_agent():
 
     my_agent = initialize_agent(
         tools=customize_tools,
-        llm=global_llm_chat,
+        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo"),
         agent='conversational-react-description',
         verbose=True,
         memory=memory,
         max_iterations=5,
         early_stopping_method='generate'
     )
-
-    # 原始的prompt
-    print('''input_variables=['input', 'chat_history', 'agent_scratchpad'] output_parser=None partial_variables={} template='Assistant is a large language model trained by OpenAI.\n\nAssistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. As a language model, Assistant is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.\n\nAssistant is constantly learning and improving, and its capabilities are constantly evolving. It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to a wide range of questions. Additionally, Assistant is able to generate its own text based on the input it receives, allowing it to engage in discussions and provide explanations and descriptions on a wide range of topics.\n\nOverall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. Whether you need help with a specific question or just want to have a conversation about a particular topic, Assistant is here to assist.\n\nTOOLS:\n------\n\nAssistant has access to the following tools:\n\n> SummarizeWebInformation: When you need to summarize web information after 2022, input should be key word\n> 查詢富邦銀行相關資訊: Useful for questions related to all bank related topics to get more information,         your action input here must be a single sentence query that correspond to the question\n> 查询复歌科技公司产品名称: 通过产品名称找到复歌科技产品描述时用的工具，输入应该是产品名称\n> 复歌科技公司相关信息: 当用户询问复歌科技公司相关的问题, 可以通过这个工具了解相关信息\n\nTo use a tool, please use the following format:\n\n```\nThought: Do I need to use a tool? Yes\nAction: the action to take, should be one of [SummarizeWebInformation, 查詢富邦銀行相關資訊, 查询复歌科技公司产品名称, 复歌科技公司相关信息]\nAction Input: the input to the action\nObservation: the result of the action\n```\n\nWhen you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:\n\n```\nThought: Do I need to use a tool? No\nAI: [your response here]\n```\n\nBegin!\n\nPrevious conversation history:\n{chat_history}\n\nNew input: {input}\n{agent_scratchpad}' template_format='f-string' validate_template=True''')
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
@@ -460,22 +486,24 @@ def get_my_agent():
     Observation: the result of the action
     ```
 
-    When you have a response to say to the Human, or if you do not need to use a tool,
-    Use the format:
+    When you have gathered all the observation and have response to say to the Human,
+    or if you do not need to use a tool,
+    use the following format:
 
     ```
     Thought: Do I need to use a tool? No
-    {ai_prefix}: [your response here]
+    {ai_prefix}: [your response]
     ```"""
 
-    agent_prompt_suffix = """Begin, answer in traditional Chinese!
+    agent_prompt_suffix = """Begin! 
 
     Previous conversation history:
     {chat_history}
 
-    New user input: {input}
-    If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements. Remember to make the most use of previous observation.
-    {agent_scratchpad}"""
+    New user question: {input}
+    
+    {agent_scratchpad}
+    """
 
     #自己填充的prompt
     new_sys_msg = my_agent.agent.create_prompt(
@@ -487,7 +515,7 @@ def get_my_agent():
         human_prefix = "Human"
     ) 
     my_agent.agent.llm_chain.prompt = new_sys_msg
-    my_agent.agent.llm_chain.prompt.output_parser = CustomOutputParser()
+    my_agent.agent.llm_chain.prompt.output_parser = ChatOutputParser
     
     return my_agent
 

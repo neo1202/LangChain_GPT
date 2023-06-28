@@ -1,6 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 import axios from 'axios';
 import DocUploader from './DocUploader';
+import human_pic from './assets/human.jpg';
+import ai_pic from './assets/ai.jpg';
+import bg_pic from './assets/bg.jpg';
 
 
 function App() {
@@ -45,7 +48,7 @@ function App() {
 
 	return (
 	<>
-		<div className="absolute right-0 top-0 -z-50 h-screen w-screen bg-[url('https://source.unsplash.com/OTy0mkqc2Yk')] bg-cover bg-fixed bg-center  bg-no-repeat">
+		<div className="absolute right-0 top-0 -z-50 h-screen w-screen bg-[url('./assets/bg.jpg')] bg-cover bg-fixed bg-center  bg-no-repeat">
 		</div>
 		<DocUploader/>
 		<section className="flex flex-col items-center justify-center h-screen">
@@ -63,13 +66,13 @@ function App() {
                                     	{message.HumanInput}
                                     </div>
 									<img alt="" className="h-10 w-10 rounded-full object-cover" 
-										 src={"https://source.unsplash.com/pUhxoSapPFA"} 
+										 src={human_pic} 
 									/>
 								</div>
 							}
 							<div className="ml-2 mb-6 item-center flex flex-row justify-start font-bold">
 								<img alt="" className="h-10 w-10 rounded-full object-cover" 
-									 src={"https://source.unsplash.com/pUhxoSapPFA}"} 
+									 src={ai_pic} 
 								/>
 								<div style={{ whiteSpace: 'pre-wrap' }} className="ml-2 rounded-r-3xl rounded-tl-xl bg-gray-400 px-3 py-2 text-white">
 									{message.AiResponse}

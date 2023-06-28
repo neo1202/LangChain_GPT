@@ -21,6 +21,8 @@ app.config['PINECONE_KEY'] = PINECONE_KEY
 
 llm_chat, embeddings = initialize()
 my_agent = get_my_agent()
+print(f"\n --- \n Agent prompt:\n {my_agent.agent.llm_chain.prompt}\n")
+print(f"Agent Output Parser: {my_agent.agent.llm_chain.prompt.output_parser}\n---\n")
 
 @app.route('/data')
 def get_time():
@@ -31,8 +33,7 @@ def get_time():
         "programming":"python"
     }
 
-@app.route('/upload_folder', methods=['POST'])
-@app.route('/upload_file', methods=['POST'])
+@app.route('/upload_doc', methods=['POST'])
 #Two possibilities -> a single folder or 1~multiple files
 def upload_documents():
     responses = []
@@ -73,13 +74,14 @@ def process_input():
     data = request.get_json()
     print(f'receive data from User input: {data}')
     user_input = data.get('inputText') #等同於 data['inputText']
-    try:
-        Ai_response = my_agent.run(user_input)
-    except Exception as e:
-        Ai_response = str(e)
-        print(f'The error message is here: {e}')
-        if Ai_response.startswith("Could not parse LLM output: `"):
-            Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
+    # try:
+    #     Ai_response = my_agent.run(user_input)
+    # except Exception as e:
+    #     Ai_response = str(e)
+    #     print(f'The error message is here: {e}')
+    #     if Ai_response.startswith("Could not parse LLM output: `"):
+    #         Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
+    Ai_response = my_agent.run(user_input)
     
     return jsonify({'response': Ai_response})
 
