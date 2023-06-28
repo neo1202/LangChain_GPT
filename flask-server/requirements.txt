@@ -119,7 +119,5 @@ xxhash==3.2.0
 yarl==1.9.2
 pypdf
 docx2txt
-unstructured[local-inference]
-layoutparser[layoutmodels,tesseract]
 google-serp-api
 text2vec

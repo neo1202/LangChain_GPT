@@ -77,7 +77,7 @@ def process_input():
         Ai_response = my_agent.run(user_input)
     except Exception as e:
         Ai_response = str(e)
-        print(f'The error is here{e}')
+        print(f'The error message is here: {e}')
         if Ai_response.startswith("Could not parse LLM output: `"):
             Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
     

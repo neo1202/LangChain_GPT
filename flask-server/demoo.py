@@ -377,11 +377,6 @@ def get_my_agent():
             func=sumWebAPI,
             description="Only use when user ask to search for web information after 2022, input should be key word"
         ),
-        # Tool(
-        #     name="Calculator",
-        #     func=llm_math_chain.run,
-        #     description="useful for when you need to answer questions about math"
-        # ),
         Tool(
             name="查詢復歌科技公司產品名稱",
             func=fuge_data_source.find_product_description,
@@ -466,8 +461,7 @@ def get_my_agent():
     ```
 
     When you have a response to say to the Human, or if you do not need to use a tool,
-    remember to make the most use of previous observation.
-    you MUST use the format:
+    Use the format:
 
     ```
     Thought: Do I need to use a tool? No
@@ -480,7 +474,7 @@ def get_my_agent():
     {chat_history}
 
     New user input: {input}
-    If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements
+    If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements. Remember to make the most use of previous observation.
     {agent_scratchpad}"""
 
     #自己填充的prompt
@@ -491,7 +485,7 @@ def get_my_agent():
         suffix = agent_prompt_suffix,
         ai_prefix = "AI",
         human_prefix = "Human"
-    ) #input_variables: Optional[List[str]] = None
+    ) 
     my_agent.agent.llm_chain.prompt = new_sys_msg
     my_agent.agent.llm_chain.prompt.output_parser = CustomOutputParser()
     
