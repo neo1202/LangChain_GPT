@@ -6,10 +6,12 @@
 Install git (optional, you can just download zip by pressing the green button 'Code')
 
 https://git-scm.com
+![git](images/git.png)
 
 Install node package manager(npm)
 
 https://nodejs.org/zh-tw
+![node](images/node.png)
 
 After installing the prerequisites, open a new terminal
 

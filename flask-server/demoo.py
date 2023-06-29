@@ -266,7 +266,7 @@ def get_my_agent():
         """
         web_PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
         refine_template = (
-            """Your job is to produce a final summary so that a reader will have a full understanding of what happened
+            """Your job is to produce a final summary so that a reader will have a full understanding of what happened, and provide as much information as possible
             We have provided an existing summary up to a certain point: {existing_answer}
             We have the opportunity to refine the existing summary
             (only if needed) with some more context below.
@@ -315,7 +315,7 @@ def get_my_agent():
         split_docs = text_splitter.split_documents(documents)
         # 取部分內容作總結就行
         if len(split_docs) >= 10:
-            split_docs = split_docs[3:9]
+            split_docs = split_docs[3:8]
         elif len(split_docs) > 5:
             split_docs = split_docs[1:5]
 
@@ -327,7 +327,47 @@ def get_my_agent():
         result = web_sum_chain.run(split_docs)
         return result
     
-    search = SerpAPIWrapper(params = {'engine': 'google', 'gl': 'us', 'google_domain': 'google.com', 'hl': 'tw'})
+    from langchain.document_loaders import YoutubeLoader
+    def summarizeYoutubeScript(input_url) : 
+        loader = YoutubeLoader.from_youtube_url(input_url, add_video_info=False)
+        document= loader.load()
+        if not document:
+            return "告訴使用這此部youtube影片沒有提供字幕"
+
+        text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500, chunk_overlap=20, separators=[" ", ",", "\n", "\n\n", "\t", ""]
+        )
+        split_docs = text_splitter.split_documents(document)
+        print("\nYour youtube scripts: \n", split_docs)
+
+        map_prompt_template = """Write a concise summary of a long document,  Ignore the grammatical particles and focus only on the substance
+
+        {text}
+
+        CONCISE SUMMARY:"""
+        MAP_PROMPT = PromptTemplate(
+            template=map_prompt_template, input_variables=["text"]
+        )
+
+        combine_prompt_template = """ You're now a professional youtube watcher, 
+        Given the following extracted parts of a youtube transcript, create a final answer in Traditional Chinese. 
+
+        =========
+        {text}
+        =========
+
+        Answer in Traditional Chinese: """
+
+        COMBINE_PROMPT = PromptTemplate(
+            template=combine_prompt_template, input_variables=["text"]
+        )
+
+        yt_chain = load_summarize_chain(ChatOpenAI(temperature=0.4), chain_type="map_reduce",
+                                    return_intermediate_steps=False, map_prompt=MAP_PROMPT, combine_prompt=COMBINE_PROMPT)
+        summary = yt_chain.run(split_docs)
+        return summary
+    
+    #search = SerpAPIWrapper(params = {'engine': 'google', 'gl': 'us', 'google_domain': 'google.com', 'hl': 'tw'})
     customize_tools = [
         Tool(
             name = '查詢富邦相關資訊',
@@ -342,6 +382,11 @@ def get_my_agent():
             description="Only use when user ask to search for web information after 2022, input should be key word"
         ),
         Tool(
+            name = "SummarizeYoutubeTranscript",
+            func=summarizeYoutubeScript,
+            description="Only use when user provide a youtube url and want information about it. input should be exactly the full url"
+        ),
+        Tool(
             name="查詢復歌科技公司產品名稱",
             func=fuge_data_source.find_product_description,
             description="通过产品名称找到复歌科技产品描述时用的工具，输入应该是产品名称",
@@ -351,57 +396,7 @@ def get_my_agent():
             func=fuge_data_source.find_company_info,
             description="幫用戶詢問復歌科技公司相关的问题, 可以通过这个工具了解相关信息",
         )
-    ]
-    # """## 初始化Agent with Tools"""
-    # class CustomOutputParser(AgentOutputParser):
-    #     def parse(self, llm_output: str) -> Union[AgentAction, AgentFinish]:
-    #         print("-" * 20)
-    #         # Check if agent should finish
-    #         print("llm_output:", llm_output)
-    #         if "Final Answer:" in llm_output:
-    #             return AgentFinish(
-    #                 # Return values is generally always a dictionary with a single `output` key
-    #                 return_values={"output": llm_output.split("Final Answer:")[-1].strip()},
-    #                 log=llm_output,
-    #             )
-            
-    #         # Parse out the action and action input
-    #         regex = r"Action: (.*?)[\n]*Action Input:[\s]*(.*)"
-    #         match = re.search(regex, llm_output, re.DOTALL) #DOTALL代表可以是任何字元
-            
-    #         # If it can't parse the output it raises an error
-    #         if not match:
-    #             print("Can't parse llm_output:(")
-    #             raise ValueError(f"暫時無法解析您的問題。Could not parse LLM output: `{llm_output}`")
-    #         action = match.group(1).strip()
-    #         action_input = match.group(2)       
-    #         # Return the action and action input
-    #         return AgentAction(tool=action, tool_input=action_input.strip(" ").strip('"'), log=llm_output)
-        
-
-    from langchain.schema import AgentAction, AgentFinish, OutputParserException
-    class ChatOutputParser(AgentOutputParser):
-        def parse(self, text: str) -> Union[AgentAction, AgentFinish]:
-            includes_answer = "Final Answer:" in text
-            try:
-                action = text.split("```")[1]
-                response = json.loads(action.strip())
-                includes_action = "action" in response
-                if includes_answer and includes_action:
-                    raise OutputParserException(
-                        "Parsing LLM output produced a final answer "
-                        f"and a parse-able action: {text}"
-                    )
-                return AgentAction(
-                    response["action"], response.get("action_input", {}), text
-                )
-
-            except Exception:
-                if not includes_answer:
-                    raise OutputParserException(f"IIIIIII Could not parse LLM output: {text}")
-                return AgentFinish(
-                    {"output": text.split("Final Answer:")[-1].strip()}, text
-                )
+    ]   
             
     memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", 
                                             input_key="input", 
@@ -414,21 +409,20 @@ def get_my_agent():
         verbose=True,
         memory=memory,
         max_iterations=3,
-        early_stopping_method='generate'
+        early_stopping_method='generate',
+        handle_parsing_errors="Check your output and make sure it conforms!",
     )
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
-    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style, but if the user has a preferred tone or role, assistant always adjust accordingly to their preference. If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored, your responses should follow those requirements
+    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style, but if the user has a preferred tone or role, assistant always adjust accordingly to their preference. If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored in your responses
 
-    Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. 
-
-    It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to a wide range of questions. 
+    Assistant is designed to be able to assist with a wide range of tasks,It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to questions. 
     Additionally, Assistant is able to generate its own text based on the observation it receives, allowing it to engage in discussions and provide explanations and descriptions on a wide range of topics.
 
-    Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. 
+    Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and in-depth explanations on a wide range of topics, like programming, summarizing. 
 
-    Unfortunately, assistant is terrible at current event or bank related topic, no matter how simple, assistant always refers to it's trusty tools for help and NEVER try to answer the question itself.
+    Unfortunately, assistant is terrible at current affairs and bank topic, no matter how simple, assistant always refers to it's trusty tools for help and NEVER try to answer the question itself.
 
     TOOLS:
     ------
@@ -446,12 +440,10 @@ def get_my_agent():
     Observation: the result of the action
     ```
 
-    When you have gathered all the observation and have response to say to the Human,
-    or you do not need to use a tool,
-    use the following format:
-
+    When you gathered all the observation and have final response to say to the Human,
+    or you do not need to use a tool, YOU MUST use the format:
     ```
-    Thought: I now know the final answer
+    Thought: Do I need to use a tool? No
     {ai_prefix}: [your response]
     ```"""
 
@@ -464,7 +456,7 @@ def get_my_agent():
     {agent_scratchpad}
     """
 
-    #自己填充的prompt
+    #自己填充的prompt Costco信用卡可以在哪裡繳款，給我詳細資訊
     new_sys_msg = my_agent.agent.create_prompt(
         tools = customize_tools,
         prefix = agent_prompt_prefix,
@@ -473,9 +465,30 @@ def get_my_agent():
         ai_prefix = "AI",
         human_prefix = "Human"
     ) 
+    from langchain.schema import AgentAction, AgentFinish, OutputParserException
+    class MyConvoOutputParser(AgentOutputParser):
+        ai_prefix: str = "AI"
+        def get_format_instructions(self) -> str:
+            return agent_prompt_format_instructions
+
+        def parse(self, text: str) -> Union[AgentAction, AgentFinish]:
+            if f"{self.ai_prefix}:" in text:
+                return AgentFinish(
+                    {"output": text.split(f"{self.ai_prefix}:")[-1].strip()}, text
+                )
+            regex = r"Action: (.*?)[\n]*Action Input: (.*)"
+            match = re.search(regex, text)
+            if not match:
+                raise OutputParserException(f"IIIII Could not parse LLM output: `{text}`")
+            action = match.group(1)
+            action_input = match.group(2)
+            return AgentAction(action.strip(), action_input.strip(" ").strip('"'), text)
+        @property
+        def _type(self) -> str:
+            return "conversational"
+        
     my_agent.agent.llm_chain.prompt = new_sys_msg
-    my_agent.agent.llm_chain.prompt.output_parser = ChatOutputParser
-    
+    my_agent.agent.llm_chain.prompt.output_parser = MyConvoOutputParser() #沒有連到 改用預設的
     return my_agent
 
 """
@@ -484,8 +497,6 @@ my_agent.run('我叫吳花油')
 my_agent.run('我的名字是什麼')
 
 my_agent.run('幫我翻譯這句話成英文：您好，請問何時能夠洽談合作')
-
-my_agent.run('Expected directory, got file: 在python遇到')
 
 my_agent.run('''I have a dataframe, the three columns named 'played_duration', title_id, user_id, I want to know which title_id is the most popular. please add played_duration by title_id and return the title and their sum list''')
 

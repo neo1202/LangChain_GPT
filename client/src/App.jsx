@@ -53,7 +53,7 @@ function App() {
 		<DocUploader/>
 		<section className="flex flex-col items-center justify-center h-screen">
 			<div className="w-4/5 h-3/4 bg-gray-200 rounded-lg container relative min-w-[450px] overflow-y-auto border-2 pb-4">
-				<div className="h-[60px] bg-gray-400 mx-auto flex sticky top-0 w-full mb-8">
+				<div className="h-[60px] bg-gray-500 mx-auto flex sticky top-0 w-full mb-8">
 					<div className="text-3xl mx-auto text-center font-semibold place-self-center">
 						這是跟GPT的聊天室</div>
 				</div>

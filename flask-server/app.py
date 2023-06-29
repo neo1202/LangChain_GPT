@@ -72,15 +72,17 @@ def upload_documents():
 @app.route('/get_answer', methods=['POST'])
 def process_input():
     data = request.get_json()
-    print(f'receive data from User input: {data}')
+    print(f'server receive data from User input: {data}')
     user_input = data.get('inputText') #等同於 data['inputText']
     try:
         Ai_response = my_agent.run(user_input)
     except Exception as e:
         Ai_response = str(e)
-        print(f'The error message is here: {e}')
+        print(f'\nThe error message is here: {e}')
         if Ai_response.startswith("Could not parse LLM output: `"):
             Ai_response = Ai_response.removeprefix("Could not parse LLM output: `").removesuffix("`")
+        else:
+            Ai_response = my_agent.run("I want to know"+user_input)
     #Ai_response = my_agent.run(user_input)
     
     return jsonify({'response': Ai_response})
