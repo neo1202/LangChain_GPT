@@ -39,11 +39,10 @@ Install the packages using npm
 npm install
 ```
 
-run this code, so you can open website
+run this code, so you can open website [http://localhost:8080](http://localhost:8080) to view it in browser.
 ```
 npm run dev
 ```
-[http://localhost:8080](http://localhost:8080) view it in browser.
 
 
 ## Backend --- _Python - Flask_
@@ -52,7 +51,7 @@ Open a new terminal and go to the server folder
  cd flask-server
  ```
  
-#### Create a config file and place your api keys in it
+#### Create a config file and place your api keys in it, only when you first clone this repo
 
 The Touch command is not already pre-installed in Windows. Execute the “npm install touch-cli -g” command
 ```
@@ -92,8 +91,21 @@ python -m flask run
 
 the server runs at [http://127.0.0.1:5000/](http://127.0.0.1:5000/) <br>
 you can visit [http://127.0.0.1:5000/data](http://127.0.0.1:5000/data) to see some msg to ensure you successfully open the server.
-
+#  Website appearance
+![img1](images/outlook.png)
 # How the LangChain work ?
-
-Agent with Tools:
+Langchain flow Chart using all in one Agent
+![flow](images/flow.png)
+## Tool
+Tool - Doc retrieval and answer base on given information
+![docretrieval](images/doc_retrieve.png)
+### Agent with Tools:
+Agent concept (reAct paper) -> reason & acting, use given tool to gain more knowledge
+![reAct](images/reAct.png)
 ![Agent with Tools](images/AgentWithTools.png)
+
+### Usecase
+Suppose I have 32 cages, and each cage has seven chickens. (Math Chain)
+![case 1](images/usecase.png)
+Other tool in practice
+![case 2](images/usecase2.png)
