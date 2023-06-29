@@ -111,3 +111,13 @@ Suppose I have 32 cages, and each cage has seven chickens. (Math Chain)
 ![case 1](images/usecase.png)
 Other tool in practice
 ![case 2](images/usecase2.png)
+
+# Feature Display
+*上網搜尋資料並總結 \ 內部文件*
+![chat 1](images/chat1.png)
+*上傳電腦內文件功能（可選資料夾 or 1~多個檔案)*
+![chat 2](images/chat2.png)
+*自帶的寫程式、翻譯功能，並且會有前幾輪對話的記憶*
+![chat 3](images/chat3.png)
+*依照網址搜尋Youtube影片並照字幕進行總結*
+![chat 4](images/chat4.png)

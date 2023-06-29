@@ -12,12 +12,12 @@ from copy import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
 from PIL import Image
+import torch
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.document_loaders import DirectoryLoader, TextLoader
 
-import torch
 from langchain.vectorstores import Pinecone
 import pinecone
 from langchain.agents import load_tools
@@ -32,6 +32,7 @@ from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.document_loaders import UnstructuredExcelLoader
 from langchain.document_loaders import PyPDFLoader
 from langchain.document_loaders import Docx2txtLoader
+from langchain.document_loaders import YoutubeLoader
 import nltk
 nltk.download('punkt')
 from langchain.document_loaders import UnstructuredFileLoader
@@ -58,23 +59,20 @@ from text2vec import SentenceModel
 global_llm_chat, global_embeddings = None, None
 
 def initialize():
-    global global_llm_chat, global_embeddings
     os.environ["OPENAI_API_KEY"] = OPEN_API_KEY
     os.environ["SERPAPI_API_KEY"] = SERP_API_KEY
-
     #OpenAI類默認對應 「text-davinci-003」版本：
     #OpenAIChat類默認是 "gpt-3.5-turbo"版本
     #OpenAI是即將被棄用的方法，最好是用ChatOpenAI
-    model = SentenceModel('shibing624/text2vec-base-chinese')
+    #model = SentenceModel('shibing624/text2vec-base-chinese')
     EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     embeddings = HuggingFaceEmbeddings(model_name='shibing624/text2vec-base-chinese', model_kwargs={'device': EMBEDDING_DEVICE})  #768維度
     llm_chat = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo") #GPT-3.5-turbo
     #llm_chat = ChatOpenAI(temperature=0, model_name="gpt-4")
-    global_llm_chat, global_embeddings = llm_chat, embeddings
     return llm_chat, embeddings
 
 def process_and_store_documents(file_paths: List[str]) -> None:
-    global global_embeddings
+    llm_chat, embeddings = initialize()
     def init_txt(file_pth: str):
         loader = TextLoader(file_pth)
         documents = loader.load()
@@ -114,8 +112,8 @@ def process_and_store_documents(file_paths: List[str]) -> None:
         return split_docs_ustruc
     
     pinecone.init(
-    api_key=PINECONE_KEY,
-    environment="us-west1-gcp-free"
+        api_key=PINECONE_KEY,
+        environment="us-west1-gcp-free"
     )
     index_name="demo-langchain" #768 #open ai embedding為1536向量
 
@@ -127,27 +125,22 @@ def process_and_store_documents(file_paths: List[str]) -> None:
         )
     index = pinecone.Index(index_name)
     index.describe_index_stats()
-    #print(f"Processing file paths: {file_paths}")
-    #if not index.describe_index_stats()['total_vector_count']:
     doc_chunks = []
     for file_path in file_paths:
         txt_docs = init_txt(file_path)
-        #print(f"Document chunks from {file_path}: {txt_docs}")
         doc_chunks.extend(txt_docs)
-    Pinecone.from_texts([t.page_content for t in doc_chunks], global_embeddings, index_name=index_name)
-    docsearch=Pinecone.from_existing_index(index_name,global_embeddings) #傳入當初embedding的方法
-    index_stats = index.describe_index_stats()
+    Pinecone.from_texts([t.page_content for t in doc_chunks], embeddings, index_name=index_name)
     
 def get_my_agent():
-    global global_embeddings
+    llm_chat, embeddings = initialize()
     pinecone.init(
         api_key= PINECONE_KEY,
         environment="us-west1-gcp-free"
     )
     index_name="demo-langchain" 
     index = pinecone.Index(index_name)
-    index.describe_index_stats() 
-    docsearch = Pinecone.from_existing_index(index_name,global_embeddings)
+    print(f"\n我的資料庫現在有: {index.describe_index_stats()}筆向量\n") 
+    docsearch = Pinecone.from_existing_index(index_name, embeddings)
     CONTEXT_QA_Template = """
     根據以下提供的信息，回答用戶的問題
     信息：{context}
@@ -186,7 +179,7 @@ def get_my_agent():
             """
             prompt = CONTEXT_QA_PROMPT.format( context=context, query=query )
             return self.llm(prompt = prompt)
-    fuge_data_source = FugeDataSource(global_llm_chat) #初始化
+    fuge_data_source = FugeDataSource(llm_chat) #初始化
 
     #### 分為兩段：
     # - 第一段：得到前k筆資料是有價值的(score大於某門檻)
@@ -226,19 +219,18 @@ def get_my_agent():
             for data in response['matches']:
                 if data['score'] < threshold:
                     break;
-                print(data)
+                #print(data)
                 above_criterion_cnt += 1
             print(f"\nHow many docs match the criterion? {above_criterion_cnt} docs\n")
             return above_criterion_cnt
         def return_doc_summary(self, query: str) -> str:
             k = self.find_doc_above_score(query)
-
             if k == 0: return '沒有內部相符的文檔'
             data_retriever = RetrievalQA.from_chain_type(llm=retrieval_llm, 
                                             chain_type="map_reduce", 
                                             retriever= docsearch.as_retriever(search_kwargs={"k": k}),
                                             chain_type_kwargs = {"verbose": False,
-                                                                "question_prompt": FUBON_QUESTION_PROMPT, #注意是question_prompt
+                                                                "question_prompt": FUBON_QUESTION_PROMPT,
                                                                 "combine_prompt": FUBON_COMBINE_PROMPT,
                                                                 },
                                             return_source_documents=False)
@@ -251,7 +243,6 @@ def get_my_agent():
 
     def sumWebAPI(input_query: str) : 
         '''依照關鍵字搜尋google前n個網址並總結'''
-
         num_news = 2 # 找前2篇網站
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=400, chunk_overlap=10, separators=[" ", ",", "\n", "\n\n", "\t", ""]
@@ -289,22 +280,16 @@ def get_my_agent():
             "hl": "tw", #國家
             "gl": "us",
             "google_domain": "google.com",
-            # your api key
-            "api_key": "06089eea6970e557b98953b8a61cbbb3747c0b8651a8c331faba9dbbc166c9a3",
+            "api_key": SERP_API_KEY, # your api key 
             "num": f"{num_news}"
         }
 
         search = GoogleSearch(params)
-        results = search.get_dict()
-        ### Get Website, title ###
-        title_news, link_news = [], []
-        for i in range(len(results['organic_results'])):
-            title_news.append(results['organic_results'][i]['title'])
-            link_news.append(results['organic_results'][i]['link'])
-        print(f"related top {num_news} title: ", title_news)
-        print(f"websites: ", title_news)
-
-        loader = WebBaseLoader(link_news) #can switch to other loader
+        search_results = search.get_dict()
+        #print('\nGoogleSearch Result: ', search_results)
+        menu_items = search_results.get('search_information', {}).get('menu_items', [])
+        link_news = [item.get('link') for item in menu_items]
+        loader = WebBaseLoader(link_news[:num_news])
         documents = loader.load() #網站都合在一起變成document
         def extract_text(document):
             content = document.page_content.strip()
@@ -322,12 +307,11 @@ def get_my_agent():
         for doc in split_docs:
             doc = extract_text(doc)
             print('here is a doc:', doc)
-        web_sum_chain = load_summarize_chain(global_llm_chat, chain_type="refine", question_prompt=web_PROMPT, refine_prompt=refine_prompt
-                                    ,verbose=False) #verbose可以看過程
+        web_sum_chain = load_summarize_chain(llm_chat, chain_type="refine", question_prompt=web_PROMPT, 
+                                             refine_prompt=refine_prompt,verbose=False) #verbose可以看過程   
         result = web_sum_chain.run(split_docs)
         return result
     
-    from langchain.document_loaders import YoutubeLoader
     def summarizeYoutubeScript(input_url) : 
         loader = YoutubeLoader.from_youtube_url(input_url, add_video_info=False)
         document= loader.load()
@@ -441,7 +425,7 @@ def get_my_agent():
     ```
 
     When you gathered all the observation and have final response to say to the Human,
-    or you do not need to use a tool, YOU MUST use the format:
+    or you do not need to use a tool, YOU MUST follow the format(the prefix of "Thought: " and "{ai_prefix}: " are must be included):
     ```
     Thought: Do I need to use a tool? No
     {ai_prefix}: [your response]
