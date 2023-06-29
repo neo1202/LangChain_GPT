@@ -30,7 +30,6 @@ function App() {
 			//console.log('status:', response.status)
 			var status = response.status;
 			const resp = status === 200 ? response.data.response : '暫時無法解析您的問題';
-			//console.log('flaskRes:', resp)
 			const newMessage = {
 				HumanInput: userInput,
 				AiResponse: resp,

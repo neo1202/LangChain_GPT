@@ -123,8 +123,6 @@ def process_and_store_documents(file_paths: List[str]) -> None:
             metric='cosine', #or dotproduct
             dimensions=768
         )
-    index = pinecone.Index(index_name)
-    index.describe_index_stats()
     doc_chunks = []
     for file_path in file_paths:
         txt_docs = init_txt(file_path)
@@ -164,22 +162,23 @@ def get_my_agent():
             }
             return product_info.get(product_name, "没有找到这个产品")
 
-        def find_company_info(self, query: str) -> str:
-            """模擬公司介紹文檔數據庫，讓llm根據抓取信息回答問題"""
-            context = """
-            關於產品："讓廣告技術美而溫暖"是復歌的產品理念。在努力為企業客戶創造價值的同時，也希望讓使用復歌產品的每個人都能感受到技術的溫度。
-            我們關注用戶的體驗和建議，我們期待我們的產品能夠給每個使用者的工作和生活帶來正面的改變。
-            我們崇尚技術，用科技的力量使工作變得簡單，使生活變得更加美好而優雅，是我們的願景。
-            企業文化：復歌是一個非常年輕的團隊，公司大部分成員是90後。
-            工作上，專業、注重細節、擁抱創新、快速試錯。
-            協作中，開放、坦誠、包容、還有一點點舉重若輕的幽默感。
-            以上這些都是復歌團隊的重要特質。
-            在復歌，每個人可以平等地表達自己的觀點和意見，每個人的想法和意願都會被尊重。
-            如果你有理想，並擁有被理想所驅使的自我驅動力，我們期待你的加入。
-            """
-            prompt = CONTEXT_QA_PROMPT.format( context=context, query=query )
-            return self.llm(prompt = prompt)
+        # def find_company_info(self, query: str) -> str:
+        #     """模擬公司介紹文檔數據庫，讓llm根據抓取信息回答問題"""
+        #     context = """
+        #     關於產品："讓廣告技術美而溫暖"是復歌的產品理念。在努力為企業客戶創造價值的同時，也希望讓使用復歌產品的每個人都能感受到技術的溫度。
+        #     我們關注用戶的體驗和建議，我們期待我們的產品能夠給每個使用者的工作和生活帶來正面的改變。
+        #     我們崇尚技術，用科技的力量使工作變得簡單，使生活變得更加美好而優雅，是我們的願景。
+        #     企業文化：復歌是一個非常年輕的團隊，公司大部分成員是90後。
+        #     工作上，專業、注重細節、擁抱創新、快速試錯。
+        #     協作中，開放、坦誠、包容、還有一點點舉重若輕的幽默感。
+        #     以上這些都是復歌團隊的重要特質。
+        #     在復歌，每個人可以平等地表達自己的觀點和意見，每個人的想法和意願都會被尊重。
+        #     如果你有理想，並擁有被理想所驅使的自我驅動力，我們期待你的加入。
+        #     """
+        #     prompt = CONTEXT_QA_PROMPT.format( context=context, query=query )
+        #     return self.llm(prompt = prompt)
     fuge_data_source = FugeDataSource(llm_chat) #初始化
+
 
     #### 分為兩段：
     # - 第一段：得到前k筆資料是有價值的(score大於某門檻)
@@ -267,7 +266,7 @@ def get_my_agent():
             ------------
             Given the new context, refine the original summary
             If the context isn't useful, return the original summary.
-            The response should be in bullet points, traditional Chinese"""
+            The response should be in bullet points but not too short, traditional Chinese"""
         )
         refine_prompt = PromptTemplate(
             input_variables=["existing_answer", "text"],
@@ -319,7 +318,7 @@ def get_my_agent():
             return "告訴使用這此部youtube影片沒有提供字幕"
 
         text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500, chunk_overlap=20, separators=[" ", ",", "\n", "\n\n", "\t", ""]
+            chunk_size=500, chunk_overlap=20, separators=[" ", ",", "\n", "\n\n", "\t", ""]
         )
         split_docs = text_splitter.split_documents(document)
         print("\nYour youtube scripts: \n", split_docs)
@@ -334,21 +333,21 @@ def get_my_agent():
         )
 
         combine_prompt_template = """ You're now a professional youtube watcher, 
-        Given the following extracted parts of a youtube transcript, create a final answer in Traditional Chinese. 
+        Given the following extracted parts of a youtube transcript, create a final summary around 300 words in Traditional Chinese. 
 
         =========
         {text}
         =========
 
-        Answer in Traditional Chinese: """
+        Answer in Traditional Chinese, bullet points: """
 
         COMBINE_PROMPT = PromptTemplate(
             template=combine_prompt_template, input_variables=["text"]
         )
 
-        yt_chain = load_summarize_chain(ChatOpenAI(temperature=0.4), chain_type="map_reduce",
+        yt_chain = load_summarize_chain(ChatOpenAI(temperature=0.2), chain_type="map_reduce",
                                     return_intermediate_steps=False, map_prompt=MAP_PROMPT, combine_prompt=COMBINE_PROMPT)
-        summary = yt_chain.run(split_docs)
+        summary = yt_chain.run(split_docs[:6])
         return summary
     
     #search = SerpAPIWrapper(params = {'engine': 'google', 'gl': 'us', 'google_domain': 'google.com', 'hl': 'tw'})
@@ -363,23 +362,23 @@ def get_my_agent():
         Tool(
             name = "SummarizeWebInformation",
             func=sumWebAPI,
-            description="Only use when user ask to search for web information after 2022, input should be key word"
+            description="Only use when user ask to search for web affairs, input should be key word"
         ),
         Tool(
             name = "SummarizeYoutubeTranscript",
             func=summarizeYoutubeScript,
             description="Only use when user provide a youtube url and want information about it. input should be exactly the full url"
         ),
-        Tool(
-            name="查詢復歌科技公司產品名稱",
-            func=fuge_data_source.find_product_description,
-            description="通过产品名称找到复歌科技产品描述时用的工具，输入应该是产品名称",
-        ),
-        Tool(
-            name="復歌科技公司相關信息",
-            func=fuge_data_source.find_company_info,
-            description="幫用戶詢問復歌科技公司相关的问题, 可以通过这个工具了解相关信息",
-        )
+        # Tool(
+        #     name="查詢復歌科技公司產品名稱",
+        #     func=fuge_data_source.find_product_description,
+        #     description="通过产品名称找到复歌科技产品描述时用的工具，输入应该是产品名称",
+        # ),
+        # Tool(
+        #     name="復歌科技公司相關信息",
+        #     func=fuge_data_source.find_company_info,
+        #     description="幫用戶詢問復歌科技公司相关的问题, 可以通过这个工具了解相关信息",
+        # )
     ]   
             
     memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", 
@@ -399,12 +398,13 @@ def get_my_agent():
 
     #https://www.youtube.com/watch?v=q-HNphrWsDE
     agent_prompt_prefix = """
-    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style, but if the user has a preferred tone or role, assistant always adjust accordingly to their preference. If a user has specific requirements, (such as formatting needs, answer in bullet point) they should NEVER be ignored in your responses
+    Assistant is a large language model in 富邦銀行. Always answer question with traditional Chinese, By default, I use a Persuasive, Descriptive style, but if the user has a preferred tone or role, assistant always adjust accordingly to their preference. If a user has specific formatting needs,such as answer in bullet point, they should NEVER be ignored in your responses
 
     Assistant is designed to be able to assist with a wide range of tasks,It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to questions. 
+
     Additionally, Assistant is able to generate its own text based on the observation it receives, allowing it to engage in discussions and provide explanations and descriptions on a wide range of topics.
 
-    Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and in-depth explanations on a wide range of topics, like programming, summarizing. 
+    Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and in-depth explanations on a wide range of topics, like programming, summarizing text. 
 
     Unfortunately, assistant is terrible at current affairs and bank topic, no matter how simple, assistant always refers to it's trusty tools for help and NEVER try to answer the question itself.
 
@@ -427,7 +427,6 @@ def get_my_agent():
     When you gathered all the observation and have final response to say to the Human,
     or you do not need to use a tool, YOU MUST follow the format(the prefix of "Thought: " and "{ai_prefix}: " are must be included):
     ```
-    Thought: Do I need to use a tool? No
     {ai_prefix}: [your response]
     ```"""
 
@@ -472,7 +471,7 @@ def get_my_agent():
             return "conversational"
         
     my_agent.agent.llm_chain.prompt = new_sys_msg
-    my_agent.agent.llm_chain.prompt.output_parser = MyConvoOutputParser() #沒有連到 改用預設的
+    #my_agent.agent.llm_chain.prompt.output_parser = MyConvoOutputParser() #沒有連到 改用預設的
     return my_agent
 
 """

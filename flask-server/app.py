@@ -19,7 +19,6 @@ app.config['PINECONE_KEY'] = PINECONE_KEY
 
 #https://code.visualstudio.com/docs/python/tutorial-flask#_use-a-template-to-render-a-page
 
-llm_chat, embeddings = initialize()
 my_agent = get_my_agent()
 print(f"\n --- \n Agent prompt:\n {my_agent.agent.llm_chain.prompt}\n")
 print(f"Agent Output Parser: {my_agent.agent.llm_chain.prompt.output_parser}\n---\n")
@@ -66,8 +65,20 @@ def upload_documents():
         finally:
             # 刪除臨時文件
             os.remove(temp_file.name)
-    responses.append('end message:file upload successfully finished')
-    return jsonify({'responses': responses}), 200
+
+    all_files_uploaded = True  # 标志变量，默认为True
+    for response in responses:
+        if isinstance(response, dict) and response.get("code") != 200:
+            all_files_uploaded = False
+            break #代表有文件上傳失敗
+    if all_files_uploaded:
+        print("所有文件都成功上傳")
+        return jsonify({'responses': responses}), 200
+    else:
+        print("有文件上傳失敗")
+        return jsonify({'responses': responses}), 422
+    #responses.append('end message:file upload successfully finished')
+    #return jsonify({'responses': responses}), 200
 
 @app.route('/get_answer', methods=['POST'])
 def process_input():

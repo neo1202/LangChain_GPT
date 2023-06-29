@@ -1,5 +1,10 @@
 # LangChain with GPT demo website
 
+*You may need the following api keys:
+> * pinecone vector database to store your documents <br>
+> * OpenAI Api keys to use llm chains <br>
+> * serpapi keys to search for web informations
+
 ## Start, init
 > The repo is https://github.com/neo1202/LangChain_GPT.git
 

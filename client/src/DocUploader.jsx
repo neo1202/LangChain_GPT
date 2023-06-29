@@ -8,7 +8,12 @@ const DocUploader = () => {
     axios.post('http://127.0.0.1:5000/upload_doc', formData)
     .then((response) => {
         console.log(response.data);
-        alert('上傳成功！')
+        if (response.status === 200) {
+            alert('上傳成功！');
+        } else if (response.status === 422) {
+            alert('上傳失敗！');
+        }
+        //alert('上傳成功！')
     })
     .catch((error) => {
         console.error(error);
