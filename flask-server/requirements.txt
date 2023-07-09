@@ -123,3 +123,4 @@ google-serp-api
 text2vec
 youtube-transcript-api
 pytube
+bs4
